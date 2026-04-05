@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="italian_shop.css">
+    <title>Market Day - Shop</title>
+</head>
+
+<body>
+
+    <!-- Cart Button -->
+    <button class="cart-icon" onclick="toggleCart()">
+        🛒 Cart <span class="cart-count" id="cart-count">0</span>
+    </button>
+
+    <!-- Cart Overlay -->
+    <div class="cart-overlay" id="cart-overlay" onclick="toggleCart()"></div>
+
+    <!-- Cart Drawer -->
+    <div class="cart-drawer" id="cart-drawer">
+        <button class="close-cart" onclick="toggleCart()">✕</button>
+        <h2>Your Cart</h2>
+        <div class="cart-items" id="cart-items">
+            <p class="cart-empty">Your cart is empty</p>
+        </div>
+        <div class="cart-footer">
+            <div class="cart-total">
+                <span>Total</span>
+                <span id="cart-total">$0.00</span>
+            </div>
+            <button class="checkout-btn" id="checkout-btn" onclick="checkout()" disabled>Checkout</button>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <span class="sidebar-icon">🛒</span>
+            <span class="sidebar-label">Market Selection</span>
+        </div>
+        <a href="index.html">
+            <span class="link-icon">🏠</span>
+            <span class="link-text">Home</span>
+        </a>
+        <a href="lebanese_shop.html">
+            <span class="link-icon">🇱🇧</span>
+            <span class="link-text">Lebanese Cuisine</span>
+        </a>
+        <a href="italian_shop.html">
+            <span class="link-icon">🇮🇹</span>
+            <span class="link-text">Italian Cuisine</span>
+        </a>
+        <a href="greek_shop.html">
+            <span class="link-icon">🇬🇷</span>
+            <span class="link-text">Greek Cuisine</span>
+        </a>
+        <a href="chinese_shop.html">
+            <span class="link-icon">🇨🇳</span>
+            <span class="link-text">Chinese Cuisine</span>
+        </a>
+        <button class="settings-btn">
+            <span class="link-icon">⚙️</span>
+            <span class="btn-text">Settings</span>
+        </button>
+    </div>
+
+    <div class="page-content">
+        <div class="shop-header">
+            <div class="shop-tag">Browse</div>
+            <h1 class="title">Italian Cuisine</h1>
+            <p class="shop-subtitle">Fresh, handmade dishes prepared by our students</p>
+        </div>
+
+        <div class="shop-grid" id="shop-grid"></div>
+    </div>
+
+    <script>
+        let cart = {};
+        let productPrices = {};
+
+        function getEmoji(name) {
+            name = name.toLowerCase();
+            if (name.includes('spaghetti') || name.includes('pasta')) return '🍝';
+            if (name.includes('pizza')) return '🍕';
+            if (name.includes('calamari') || name.includes('squid')) return '🦑';
+            if (name.includes('rice')) return '🍚';
+            if (name.includes('bruschetta') || name.includes('bread')) return '🍞';
+            if (name.includes('vino') || name.includes('wine')) return '🍷';
+            return '🍽️';
+        }
+
+        function getStockStatus(stock) {
+            const qty = parseInt(stock);
+            if (qty === 0) return { label: 'Out of Stock', class: 'out-of-stock', disabled: true };
+            if (qty < 10) return { label: 'Low Stock', class: 'low-stock', disabled: false };
+            return { label: 'In Stock', class: 'in-stock', disabled: false };
+        }
+
+        function addToCart(name, price) {
+            cart[name] = (cart[name] || 0) + 1;
+            productPrices[name] = price;
+            updateCartUI();
+        }
+
+        function removeFromCart(name) {
+            if (cart[name] > 1) {
+                cart[name]--;
+            } else {
+                delete cart[name];
+                delete productPrices[name];
+            }
+            updateCartUI();
+        }
+
+        function updateCartUI() {
+            const totalItems = Object.values(cart).reduce((a, b) => a + b, 0);
+            document.getElementById('cart-count').textContent = totalItems;
+
+            const cartItemsEl = document.getElementById('cart-items');
+            const checkoutBtn = document.getElementById('checkout-btn');
+
+            if (totalItems === 0) {
+                cartItemsEl.innerHTML = '<p class="cart-empty">Your cart is empty</p>';
+                checkoutBtn.disabled = true;
+                document.getElementById('cart-total').textContent = '$0.00';
+                return;
+            }
+
+            checkoutBtn.disabled = false;
+            let total = 0;
+            cartItemsEl.innerHTML = Object.entries(cart).map(([name, qty]) => {
+                const lineTotal = productPrices[name] * qty;
+                total += lineTotal;
+                return `
+                    <div class="cart-item">
+                        <span class="cart-item-name">${name}</span>
+                        <div class="cart-item-controls">
+                            <button onclick="removeFromCart('${name}')">−</button>
+                            <span>${qty}</span>
+                            <button onclick="addToCart('${name}', ${productPrices[name]})">+</button>
+                        </div>
+                        <span class="cart-item-price">$${lineTotal.toFixed(2)}</span>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('cart-total').textContent = `$${total.toFixed(2)}`;
+        }
+
+        function toggleCart() {
+            document.getElementById('cart-drawer').classList.toggle('open');
+            document.getElementById('cart-overlay').classList.toggle('open');
+        }
+
+        function checkout() {
+            if (Object.keys(cart).length === 0) return;
+            const btn = document.getElementById('checkout-btn');
+            btn.disabled = true;
+            btn.textContent = 'Processing...';
+
+            fetch('http://127.0.0.1:5001/checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cart)
+            })
+            .then(res => res.json())
+            .then(() => {
+                cart = {};
+                productPrices = {};
+                updateCartUI();
+                btn.textContent = 'Checkout';
+                alert('Order placed! Stock has been updated.');
+                location.reload(); // reload to show updated stock
+            })
+            .catch(() => {
+                alert('Could not connect to server. Make sure app.py is running.');
+                btn.disabled = false;
+                btn.textContent = 'Checkout';
+            });
+        }
+
+        fetch('italian_products.csv')
+            .then(res => res.text())
+            .then(text => {
+                const lines = text.trim().split(/\r?\n/).slice(1);
+                const grid = document.getElementById('shop-grid');
+
+                lines.forEach(line => {
+                    if (!line.trim()) return;
+                    const cols = line.includes('\t') ? line.split('\t') : line.split(',');
+                    const [emoji, name, description, price, stock] = cols.map(c => (c || '').trim());
+                    const cleanPrice = parseFloat((price || '0').replace('$', ''));
+                    const stockStatus = getStockStatus(stock);
+                    const displayEmoji = getEmoji(name);
+
+                    grid.innerHTML += `
+                        <div class="product-card">
+                            <div class="product-image">${displayEmoji}</div>
+                            <div class="product-info">
+                                <h3 class="product-name">${name}</h3>
+                                <p class="product-desc">${description}</p>
+                                <div class="product-footer">
+                                    <span class="product-price">$${cleanPrice.toFixed(2)}</span>
+                                    <span class="stock-indicator ${stockStatus.class}">${stockStatus.label}</span>
+                                    <button class="add-btn" ${stockStatus.disabled ? 'disabled' : ''}
+                                        onclick="addToCart('${name}', ${cleanPrice})">Add +</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            });
+    </script>
+
+</body>
+</html>
